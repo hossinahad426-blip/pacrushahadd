@@ -1,0 +1,35 @@
+name: Build
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Unzip project
+        run: Expand-Archive pacrush.zip -DestinationPath .
+      - name: Create run.py
+        working-directory: pacrush
+        run: Set-Content run.py "from pacrush.config import Config`nfrom pacrush.bot import Bot`nBot(Config.load()).run()"
+      - name: Install
+        working-directory: pacrush
+        run: pip install -r requirements.txt pyinstaller
+      - name: Build exe
+        working-directory: pacrush
+        run: |
+          pyinstaller --onefile --name pacrush --paths . --hidden-import pynput.mouse._win32 --hidden-import pynput.keyboard._win32 run.py
+          pyinstaller --onefile --name calibrate --paths . tools/calibrate.py
+          pyinstaller --onefile --name analyze_video --paths . tools/analyze_video.py
+      - name: Package
+        working-directory: pacrush
+        run: |
+          mkdir package
+          Copy-Item dist/*.exe package/
+          Copy-Item config.json, background.npy, README.md package/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pacrush-windows
+          path: pacrush/package
